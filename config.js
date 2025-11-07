@@ -69,7 +69,8 @@ module.exports = {
   document: {
     chunkSize: parseInt(process.env.CHUNK_SIZE) || 500,
     chunkOverlap: parseInt(process.env.CHUNK_OVERLAP) || 50,
-    maxFileSize: parseInt(process.env.MAX_FILE_SIZE) || 50 * 1024 * 1024, // 50MB
+    // Allow large files up to 250MB by default (adjustable via env MAX_FILE_SIZE)
+    maxFileSize: parseInt(process.env.MAX_FILE_SIZE) || 250 * 1024 * 1024, // 250MB
     allowedExtensions: ['.pdf', '.txt']
   },
 

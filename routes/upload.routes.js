@@ -1,13 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const config = require('../config');
 const uploadController = require('../controllers/upload.controller');
 
-// Configure multer for file uploads (memory storage)
+// Use disk storage for large uploads to avoid using too much memory.
+const uploadDir = path.join(os.tmpdir(), 'rag_uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    cb(null, safeName);
+  }
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage,
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB
+    fileSize: config.document.maxFileSize
   }
 });
 

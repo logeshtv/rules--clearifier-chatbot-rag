@@ -16,8 +16,10 @@ const app = express();
 // Middleware
 app.use(corsHandler);
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Increase body size limits to accommodate large uploads and long text fields.
+const bodyLimitMb = `${Math.ceil(config.document.maxFileSize / 1024 / 1024)}mb`;
+app.use(express.json({ limit: bodyLimitMb }));
+app.use(express.urlencoded({ extended: true, limit: bodyLimitMb }));
 app.use(requestLogger);
 
 // Serve static files (for UI)

@@ -15,12 +15,16 @@ const config = require('../config');
  * Upload and process PDF or text file
  */
 async function uploadDocument(req, res) {
+  // For disk-based uploads we will read the file into a buffer, process and then remove the temp file.
+  const fs = require('fs').promises;
+  let tempFilePath = null;
+
   try {
     const { password } = req.body;
-    
+
     // Validate password
     validatePassword(password, config.uploadPassword);
-    
+
     // Check if file exists
     if (!req.file) {
       return res.status(400).json({
@@ -28,16 +32,20 @@ async function uploadDocument(req, res) {
         error: 'No file uploaded'
       });
     }
-    
+
     const file = req.file;
-    console.log(`📄 Processing file: ${file.originalname} (${(file.size / 1024).toFixed(2)} KB)`);
-    
+    tempFilePath = file.path; // multer diskStorage path
+    console.log(`📄 Processing file: ${file.originalname} (${(file.size / 1024).toFixed(2)} KB) -> ${tempFilePath}`);
+
     // Validate file
     validateFileSize(file.size);
     validateFileExtension(file.originalname);
-    
+
+    // Read the file from disk into a buffer
+    const buffer = await fs.readFile(tempFilePath);
+
     // Process document
-    const document = await processDocument(file.buffer, file.originalname);
+    const document = await processDocument(buffer, file.originalname);
     console.log(`✅ Extracted ${document.text.length} characters from document`);
     
     // Chunk the text
@@ -74,7 +82,7 @@ async function uploadDocument(req, res) {
     console.log('💾 Storing in vector database...');
     await qdrantService.upsert(points, true);
     console.log('✅ Successfully stored in Qdrant');
-    
+
     res.json({
       success: true,
       data: {
@@ -85,13 +93,24 @@ async function uploadDocument(req, res) {
         message: `Successfully processed and stored ${chunks.length} chunks`
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Upload error:', error.message);
     res.status(error.message.includes('password') ? 401 : 500).json({
       success: false,
       error: error.message
     });
+  } finally {
+    // Clean up temporary file if it exists
+    try {
+      if (tempFilePath) {
+        await require('fs').promises.unlink(tempFilePath);
+        console.log(`🧹 Deleted temp file: ${tempFilePath}`);
+      }
+    } catch (err) {
+      // Log and continue
+      console.warn('⚠️ Failed to delete temp file:', tempFilePath, err?.message || err);
+    }
   }
 }
 
