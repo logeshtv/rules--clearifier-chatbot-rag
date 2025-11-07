@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chatbot - Document Upload</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🤖 RAG Chatbot System</h1>
+            <p>Upload documents or text to enhance the chatbot's knowledge base</p>
+        </header>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="upload">📁 Upload Documents</button>
+            <button class="tab-button" data-tab="chat">💬 Chat</button>
+            <button class="tab-button" data-tab="stats">📊 Statistics</button>
+        </div>
+
+        <!-- Upload Tab -->
+        <div class="tab-content active" id="upload-tab">
+            <div class="card">
+                <h2>📤 Upload Document</h2>
+                <form id="document-upload-form" class="upload-form">
+                    <div class="form-group">
+                        <label for="password-doc">Password:</label>
+                        <input type="password" id="password-doc" placeholder="Enter password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="file-input">Select File (PDF or TXT):</label>
+                        <input type="file" id="file-input" accept=".pdf,.txt" required>
+                        <small>Maximum file size: 50MB</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Upload Document</span>
+                        <span class="btn-loader" style="display:none;">⏳ Processing...</span>
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>📝 Upload Text</h2>
+                <form id="text-upload-form" class="upload-form">
+                    <div class="form-group">
+                        <label for="password-text">Password:</label>
+                        <input type="password" id="password-text" placeholder="Enter password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="text-source">Source Name:</label>
+                        <input type="text" id="text-source" placeholder="e.g., Manual Input" value="manual-input">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="text-content">Text Content:</label>
+                        <textarea id="text-content" rows="10" placeholder="Paste your text here..." required></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">Upload Text</span>
+                        <span class="btn-loader" style="display:none;">⏳ Processing...</span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="upload-status" class="status-message" style="display:none;"></div>
+        </div>
+
+        <!-- Chat Tab -->
+        <div class="tab-content" id="chat-tab">
+            <div class="card">
+                <h2>💬 Chat with RAG Bot</h2>
+                
+                <div class="form-group">
+                    <label for="user-id">User ID:</label>
+                    <input type="text" id="user-id" placeholder="Enter your user ID" value="user-001">
+                </div>
+
+                <div id="chat-container" class="chat-container">
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-message bot">
+                            <div class="message-content">
+                                👋 Hello! I'm your RAG assistant. Ask me anything about the uploaded documents!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="chat-form" class="chat-form">
+                    <input type="text" id="chat-input" placeholder="Ask a question..." required>
+                    <button type="submit" class="btn btn-primary">Send</button>
+                </form>
+
+                <div class="chat-actions">
+                    <button id="view-history-btn" class="btn btn-secondary">📜 View History</button>
+                    <button id="clear-history-btn" class="btn btn-danger">🗑️ Clear History</button>
+                </div>
+            </div>
+
+            <div id="history-modal" class="modal" style="display:none;">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h2>Chat History</h2>
+                    <div id="history-content"></div>
+                    <div id="history-pagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div class="tab-content" id="stats-tab">
+            <div class="card">
+                <h2>📊 System Statistics</h2>
+                <div id="stats-content">
+                    <button id="refresh-stats-btn" class="btn btn-primary">🔄 Refresh Stats</button>
+                    <div id="stats-display" class="stats-display"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

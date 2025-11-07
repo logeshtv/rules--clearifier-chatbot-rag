@@ -1,0 +1,41 @@
+# Use Node.js LTS version
+FROM node:20-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for PDF parsing
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create cache directory for transformers
+RUN mkdir -p /app/.cache && chmod 777 /app/.cache
+
+# Set environment variables for transformers
+ENV TRANSFORMERS_CACHE=/app/.cache
+ENV HF_HOME=/app/.cache
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy application files
+COPY . .
+
+# Create public directory if it doesn't exist
+RUN mkdir -p public
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start the application
+CMD ["node", "index.js"]
