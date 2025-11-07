@@ -95,7 +95,12 @@ async function uploadDocument(req, res) {
         }
 
         // Sanitize and validate payload to prevent Qdrant Bad Request
-        const sanitizePayloadValue = (value) => {
+        const sanitizePayloadValue = (value, depth = 0) => {
+          // Prevent deep recursion
+          if (depth > 3) {
+            return null;
+          }
+          
           if (typeof value === 'string') {
             // Limit string length to 32KB max per field
             return value.length > 32768 ? value.substring(0, 32768) : value;
@@ -103,12 +108,27 @@ async function uploadDocument(req, res) {
           if (value === null || value === undefined) {
             return null;
           }
-          if (typeof value === 'object') {
-            // Convert to string and limit size
-            const str = JSON.stringify(value);
-            return str.length > 32768 ? str.substring(0, 32768) : str;
+          if (Array.isArray(value)) {
+            // Limit array length and sanitize elements
+            return value.slice(0, 100).map(v => sanitizePayloadValue(v, depth + 1));
           }
-          return value;
+          if (typeof value === 'object') {
+            // Recursively sanitize object properties (keep as object, don't stringify)
+            const sanitized = {};
+            const keys = Object.keys(value).slice(0, 50); // Limit number of keys
+            for (const key of keys) {
+              // Skip invalid keys or values
+              if (typeof key === 'string' && key.length > 0 && key.length < 256) {
+                sanitized[key] = sanitizePayloadValue(value[key], depth + 1);
+              }
+            }
+            return sanitized;
+          }
+          if (typeof value === 'number' || typeof value === 'boolean') {
+            return value;
+          }
+          // For other types, return null
+          return null;
         };
 
         const points = chunks.map((chunk, index) => {
@@ -125,9 +145,9 @@ async function uploadDocument(req, res) {
               chunkIndex: index,
               totalChunks: chunks.length,
               uploadedAt: new Date().toISOString(),
-              // Omit metadata if it's too large or contains problematic data
+              // Sanitize metadata but keep as object
               ...(document.metadata && Object.keys(document.metadata).length > 0 
-                ? { metadata: sanitizePayloadValue(document.metadata) } 
+                ? { metadata: sanitizePayloadValue(document.metadata, 1) } 
                 : {})
             }
           };

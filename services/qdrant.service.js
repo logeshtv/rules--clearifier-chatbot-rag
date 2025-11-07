@@ -86,10 +86,29 @@ class QdrantService {
 
     console.log(`Qdrant upsert: sending ${points.length} points (collection=${this.collectionName}, dim=${expectedDim}). sample:`, samplePreview);
 
-    return await this.client.upsert(this.collectionName, {
-      wait,
-      points
-    });
+    try {
+      return await this.client.upsert(this.collectionName, {
+        wait,
+        points
+      });
+    } catch (error) {
+      // Log detailed error information
+      console.error('Qdrant upsert failed with detailed error:');
+      console.error('Error message:', error.message);
+      console.error('Error status:', error.status);
+      console.error('Error data:', JSON.stringify(error.data || error.response?.data || {}, null, 2));
+      
+      // Log first point's full payload for debugging
+      if (points.length > 0) {
+        console.error('First point full structure:', JSON.stringify({
+          id: points[0].id,
+          vectorLength: points[0].vector?.length,
+          payload: points[0].payload
+        }, null, 2));
+      }
+      
+      throw error;
+    }
   }
 
   /**
