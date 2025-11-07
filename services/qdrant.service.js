@@ -114,7 +114,7 @@ class QdrantService {
   /**
    * Search for similar vectors
    */
-  async search(vector, limit = 5, filter = null, scoreThreshold = null) {
+  async search(vector, limit = 8, filter = null, scoreThreshold = null) {
     await this.initialize();
     
     const searchParams = {

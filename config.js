@@ -60,7 +60,7 @@ module.exports = {
 
   // RAG Configuration
   rag: {
-    topK: parseInt(process.env.RAG_TOP_K) || 5,
+    topK: parseInt(process.env.RAG_TOP_K) || 8,
     minScore: parseFloat(process.env.RAG_MIN_SCORE) || 0.5,
     contextWindow: parseInt(process.env.RAG_CONTEXT_WINDOW) || 10 // Number of previous messages to include
   },
