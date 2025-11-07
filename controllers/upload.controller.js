@@ -94,24 +94,49 @@ async function uploadDocument(req, res) {
           throw new Error(`Invalid vector values (NaN/Infinity) at index ${invalidVecIndex}`);
         }
 
-        const points = chunks.map((chunk, index) => ({
-          id: generateChunkId(file.originalname, index),
-          vector: embeddings[index],
-          payload: {
-            text: chunk,
-            source: file.originalname,
-            chunkIndex: index,
-            totalChunks: chunks.length,
-            uploadedAt: new Date().toISOString(),
-            metadata: document.metadata || {}
+        // Sanitize and validate payload to prevent Qdrant Bad Request
+        const sanitizePayloadValue = (value) => {
+          if (typeof value === 'string') {
+            // Limit string length to 32KB max per field
+            return value.length > 32768 ? value.substring(0, 32768) : value;
           }
-        }));
+          if (value === null || value === undefined) {
+            return null;
+          }
+          if (typeof value === 'object') {
+            // Convert to string and limit size
+            const str = JSON.stringify(value);
+            return str.length > 32768 ? str.substring(0, 32768) : str;
+          }
+          return value;
+        };
+
+        const points = chunks.map((chunk, index) => {
+          // Ensure chunk text is within reasonable limits
+          const textField = sanitizePayloadValue(chunk);
+          const sourceField = sanitizePayloadValue(file.originalname);
+          
+          return {
+            id: generateChunkId(file.originalname, index),
+            vector: embeddings[index],
+            payload: {
+              text: textField,
+              source: sourceField,
+              chunkIndex: index,
+              totalChunks: chunks.length,
+              uploadedAt: new Date().toISOString(),
+              // Omit metadata if it's too large or contains problematic data
+              ...(document.metadata && Object.keys(document.metadata).length > 0 
+                ? { metadata: sanitizePayloadValue(document.metadata) } 
+                : {})
+            }
+          };
+        });
 
         jobService.update(job.id, { progress: 92, message: 'Storing vectors into Qdrant' });
-        // Insert into Qdrant in one upsert (can be large)
         try {
-          // Upsert in batches to avoid very large single requests which may cause Bad Request
-          const upsertBatchSize = 500; // point count per upsert batch
+          // Allow configurable upsert batch size via env; default to 200 to be conservative
+          const upsertBatchSize = parseInt(process.env.UPSERT_BATCH_SIZE) || 200; // point count per upsert batch
           for (let k = 0; k < points.length; k += upsertBatchSize) {
             const batchPoints = points.slice(k, k + upsertBatchSize);
             jobService.update(job.id, { progress: 92 + Math.floor(((k + batchPoints.length) / points.length) * 6), message: `Upserting vectors ${Math.min(k + batchPoints.length, points.length)}/${points.length}` });

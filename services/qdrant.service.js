@@ -48,7 +48,44 @@ class QdrantService {
    */
   async upsert(points, wait = true) {
     await this.initialize();
-    
+    // Basic validation and logging to help debug Bad Request errors from Qdrant
+    if (!Array.isArray(points) || points.length === 0) {
+      throw new Error('Upsert called with empty or non-array points');
+    }
+
+    const expectedDim = config.vectorSize;
+    // Find first point that violates shape constraints
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (!p || (p.id === undefined || p.id === null)) {
+        throw new Error(`Point at index ${i} missing id`);
+      }
+      if (!Array.isArray(p.vector)) {
+        throw new Error(`Point id=${p.id} vector is not an array (index ${i})`);
+      }
+      if (p.vector.length !== expectedDim) {
+        throw new Error(`Point id=${p.id} has vector length ${p.vector.length} but expected ${expectedDim}`);
+      }
+      // Check values are finite numbers
+      for (let j = 0; j < p.vector.length; j++) {
+        const v = p.vector[j];
+        if (typeof v !== 'number' || !isFinite(v)) {
+          throw new Error(`Point id=${p.id} vector contains non-finite value at position ${j}`);
+        }
+      }
+    }
+
+    // Truncated sample for logs (don't print entire vectors to avoid huge logs)
+    const sample = points[0];
+    const samplePreview = {
+      id: sample.id,
+      vectorDim: Array.isArray(sample.vector) ? sample.vector.length : null,
+      vectorHead: Array.isArray(sample.vector) ? sample.vector.slice(0, 6) : null,
+      payloadKeys: sample.payload ? Object.keys(sample.payload).slice(0, 10) : []
+    };
+
+    console.log(`Qdrant upsert: sending ${points.length} points (collection=${this.collectionName}, dim=${expectedDim}). sample:`, samplePreview);
+
     return await this.client.upsert(this.collectionName, {
       wait,
       points
