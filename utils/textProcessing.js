@@ -1,4 +1,5 @@
 const config = require('../config');
+const { v4: uuidv4 } = require('uuid');
 
 /**
  * Chunk text into smaller pieces with overlap
@@ -81,11 +82,11 @@ function extractMetadata(text, source = '') {
 
 /**
  * Generate unique ID for document chunks
+ * Uses UUID v4 format which is compatible with Qdrant
  */
 function generateChunkId(source, index) {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 9);
-  return `${source}-chunk-${index}-${timestamp}-${random}`;
+  // Generate a valid UUID that Qdrant accepts
+  return uuidv4();
 }
 
 /**
