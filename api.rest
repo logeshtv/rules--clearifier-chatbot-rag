@@ -1,0 +1,221 @@
+# RAG Chatbot API - REST Client Collection
+# Use with VS Code REST Client extension or copy the curl commands.
+
+##################################################################
+# 1) Health Check
+##################################################################
+### Health Check
+GET http://localhost:3000/api/health
+Accept: application/json
+
+### Example Response (200)
+{
+  "success": true,
+  "status": "healthy",
+  "timestamp": "2025-11-07T12:00:00.000Z",
+  "services": {
+    "qdrant": { "status": "connected", "collections": ["rag_documents"] },
+    "embedding": { "method": "XENOVA", "model": "Xenova/all-MiniLM-L6-v2" },
+    "llm": { "provider": "OPENAI", "model": "gpt-4o-mini" },
+    "cache": { "size": 5, "maxSize": 10000 }
+  }
+}
+
+##################################################################
+# 2) System Info
+##################################################################
+### System Info
+GET http://localhost:3000/api/info
+Accept: application/json
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "embedding": { "method": "XENOVA", "model": "Xenova/all-MiniLM-L6-v2", "dimensions": 384 },
+    "llm": { "provider": "OPENAI", "model": "gpt-4o-mini" },
+    "vectorDB": { "collectionName": "rag_documents", "vectorSize": 384, "pointCount": 120 },
+    "rag": { "topK": 5, "minScore": 0.5, "contextWindow": 10 }
+  }
+}
+
+##################################################################
+# 3) Upload Text (JSON)
+##################################################################
+### Upload Raw Text
+POST http://localhost:3000/api/upload/text
+Content-Type: application/json
+Accept: application/json
+
+{
+  "password": "adrigdeva",
+  "source": "manual-input",
+  "text": "Artificial Intelligence (AI) is transforming many industries. RAG combines retrieval and generation to provide evidence-backed answers."
+}
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "source": "manual-input",
+    "chunks": 1,
+    "characters": 150,
+    "message": "Successfully processed and stored 1 chunks"
+  }
+}
+
+# cURL equivalent
+# curl -X POST http://localhost:3000/api/upload/text -H "Content-Type: application/json" -d '{"password":"adrigdeva","source":"manual-input","text":"..."}'
+
+##################################################################
+# 4) Upload Document (multipart/form-data)
+# Note: For REST Client extension, use @/absolute/path/to/file or point to file in working dir.
+##################################################################
+### Upload PDF or TXT (multipart)
+POST http://localhost:3000/api/upload/document
+Content-Type: multipart/form-data
+Accept: application/json
+
+-- NOTE: If using VS Code REST Client, use this pattern instead:
+# @/absolute/path/to/document.pdf
+# In the REST Client you can provide file by using: file=@document.pdf
+
+# Example form data (REST Client simple style)
+?password=adrigdeva
+file=@document.pdf
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "filename": "document.pdf",
+    "size": 124512,
+    "chunks": 10,
+    "characters": 5200,
+    "message": "Successfully processed and stored 10 chunks"
+  }
+}
+
+# cURL equivalent (multipart):
+# curl -X POST http://localhost:3000/api/upload/document -F "password=adrigdeva" -F "file=@./document.pdf"
+
+##################################################################
+# 5) Upload Stats
+##################################################################
+### Get Upload Stats
+GET http://localhost:3000/api/upload/stats
+Accept: application/json
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "totalChunks": 120,
+    "collectionInfo": {
+      "vectorSize": 384,
+      "distance": "Cosine"
+    }
+  }
+}
+
+##################################################################
+# 6) Chat - Streaming (SSE-like)
+# The app sends Server-Sent Events chunked responses. REST Client will show raw response.
+##################################################################
+### Chat (start streaming response)
+POST http://localhost:3000/api/chat
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "userId": "user-001",
+  "query": "What is retrieval-augmented generation (RAG)?"
+}
+
+### Example streamed events (SSE frames / data: lines)
+# data: {"chunk":"Retrieval-augmented generation (RAG) combines...","done":false}
+# data: {"chunk":" It uses a retriever to find relevant documents...","done":false}
+# data: {"chunk":"","done":true,"contexts":[{"text":"...","source":"document.pdf","score":0.92}]} 
+
+### Example final assembled response (after stream ends)
+{
+  "response": "Retrieval-augmented generation (RAG) combines a retrieval step to fetch relevant documents with a generative model that composes an answer using retrieved context. It helps ground responses in source material.",
+  "contexts": [
+    { "text": "RAG combines retrieval with generation to create answers backed by documents.", "source": "document.pdf", "score": 0.92 }
+  ]
+}
+
+# cURL example (will not stream nicely in terminal without SSE handling):
+# curl -N -X POST http://localhost:3000/api/chat -H "Content-Type: application/json" -d '{"userId":"user-001","query":"What is RAG?"}'
+
+##################################################################
+# 7) Chat History - Get (paginated)
+##################################################################
+### Get chat history (page 1, 20 per page)
+GET http://localhost:3000/api/chat/history/user-001?page=1&pageSize=20
+Accept: application/json
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "userId": "user-001",
+    "messages": [
+      {
+        "id": "1700000000000-abc123",
+        "userId": "user-001",
+        "query": "What is RAG?",
+        "response": "Retrieval-augmented generation (RAG) combines...",
+        "contexts": [ { "text": "...", "source": "document.pdf", "score": 0.92 } ],
+        "timestamp": "2025-11-07T12:00:00.000Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+
+##################################################################
+# 8) Chat History - Delete (clear history)
+##################################################################
+### Clear chat history for user
+DELETE http://localhost:3000/api/chat/history/user-001
+Accept: application/json
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "success": true,
+    "message": "Chat history cleared"
+  }
+}
+
+##################################################################
+# 9) Chat Stats (messages/users)
+##################################################################
+### Get chat stats
+GET http://localhost:3000/api/chat/stats
+Accept: application/json
+
+### Example Response (200)
+{
+  "success": true,
+  "data": {
+    "totalUsers": 3,
+    "totalMessages": 24,
+    "users": [
+      { "userId": "user-001", "messageCount": 10, "lastActivity": "2025-11-07T12:05:00.000Z" }
+    ]
+  }
+}
+
+##################################################################
+# Helpful Notes
+# - Replace host/port if your server is not on localhost:3000.
+# - For file uploads, use absolute paths or place sample files next to this .rest file.
+# - Streaming endpoints return SSE-like frames; REST clients may present them as raw text.
+# - For robust streaming testing, use a small Node script or a proper SSE client.
+##################################################################

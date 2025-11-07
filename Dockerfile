@@ -21,8 +21,14 @@ ENV HF_HOME=/app/.cache
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies: prefer npm ci when a lockfile exists, otherwise fall back to npm install
+RUN if [ -f package-lock.json ]; then \
+            echo "🧰 package-lock.json found, running npm ci --only=production"; \
+            npm ci --only=production; \
+        else \
+            echo "🧰 package-lock.json not found, running npm install --omit=dev --no-audit --no-fund"; \
+            npm install --omit=dev --no-audit --no-fund; \
+        fi
 
 # Copy application files
 COPY . .
