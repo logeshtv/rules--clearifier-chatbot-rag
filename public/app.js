@@ -35,45 +35,136 @@ tabs.forEach(tab => {
 });
 
 // Document Upload
-documentForm.addEventListener('submit', async (e) => {
+documentForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    
+
     const password = document.getElementById('password-doc').value;
     const fileInput = document.getElementById('file-input');
     const file = fileInput.files[0];
-    
+
+    const progressBar = document.getElementById('upload-progress');
+    const progressText = document.getElementById('upload-progress-text');
+
     if (!file) {
         showStatus('Please select a file', 'error');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('password', password);
     formData.append('file', file);
-    
+
     const btn = documentForm.querySelector('button[type="submit"]');
     setButtonLoading(btn, true);
-    
-    try {
-        const response = await fetch(`${API_BASE}/upload/document`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showStatus(`✅ ${data.data.message}`, 'success');
-            documentForm.reset();
-        } else {
-            showStatus(`❌ ${data.error}`, 'error');
+
+    // Show progress UI
+    progressBar.style.display = 'block';
+    progressBar.value = 0;
+    progressText.style.display = 'block';
+    progressText.textContent = 'Uploading...';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/upload/document`);
+
+    xhr.upload.onprogress = function (event) {
+        if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            progressBar.value = percent;
+            progressText.textContent = `Upload: ${percent}%`;
         }
-    } catch (error) {
-        showStatus(`❌ Upload failed: ${error.message}`, 'error');
-    } finally {
+    };
+
+    xhr.onload = function () {
+        try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status === 202 && data.success && data.jobId) {
+                progressBar.value = 100;
+                progressText.textContent = 'Upload complete. Processing...';
+                // Poll job status
+                pollJobStatus(data.jobId, (job) => {
+                    // update progress bar with job.progress
+                    if (typeof job.progress === 'number') progressBar.value = job.progress;
+                    if (job.message) progressText.textContent = `${job.message} (${job.progress || 0}%)`;
+                }, (finalJob) => {
+                    if (finalJob.status === 'completed') {
+                        showStatus(`✅ ${finalJob.message || 'Processing completed'}`, 'success');
+                    } else {
+                        showStatus(`❌ ${finalJob.message || 'Processing failed'}`, 'error');
+                    }
+                    // Reset UI
+                    setButtonLoading(btn, false);
+                    setTimeout(() => {
+                        progressBar.style.display = 'none';
+                        progressText.style.display = 'none';
+                        progressBar.value = 0;
+                    }, 2000);
+                });
+            } else {
+                showStatus(`❌ ${data.error || 'Upload failed'}`, 'error');
+                setButtonLoading(btn, false);
+                progressBar.style.display = 'none';
+                progressText.style.display = 'none';
+            }
+        } catch (err) {
+            showStatus(`❌ Upload failed: ${err.message}`, 'error');
+            setButtonLoading(btn, false);
+            progressBar.style.display = 'none';
+            progressText.style.display = 'none';
+        }
+    };
+
+    xhr.onerror = function () {
+        showStatus('❌ Upload error (network)', 'error');
         setButtonLoading(btn, false);
-    }
+        progressBar.style.display = 'none';
+        progressText.style.display = 'none';
+    };
+
+    xhr.send(formData);
 });
+
+/**
+ * Poll job status endpoint until completion or failure.
+ * progressCb(job) called on each poll; finalCb(job) on completion.
+ */
+function pollJobStatus(jobId, progressCb, finalCb) {
+    const interval = 2000; // 2s
+    let elapsed = 0;
+    const maxWait = 10 * 60 * 1000; // 10 minutes
+
+    async function check() {
+        try {
+            const resp = await fetch(`${API_BASE}/upload/status/${jobId}`);
+            const data = await resp.json();
+            if (!data.success) throw new Error(data.error || 'Unknown');
+            const job = data.data;
+            progressCb && progressCb(job);
+
+            if (job.status === 'completed' || job.status === 'failed') {
+                finalCb && finalCb(job);
+                return;
+            }
+
+            elapsed += interval;
+            if (elapsed >= maxWait) {
+                finalCb && finalCb({ status: 'failed', message: 'Processing timed out' });
+                return;
+            }
+
+            setTimeout(check, interval);
+        } catch (err) {
+            // If polling fails, retry a few times then give up
+            elapsed += interval;
+            if (elapsed >= maxWait) {
+                finalCb && finalCb({ status: 'failed', message: 'Processing error: ' + (err.message || err) });
+                return;
+            }
+            setTimeout(check, interval);
+        }
+    }
+
+    check();
+}
 
 // Text Upload
 textForm.addEventListener('submit', async (e) => {

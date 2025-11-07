@@ -34,7 +34,11 @@
                     <div class="form-group">
                         <label for="file-input">Select File (PDF or TXT):</label>
                         <input type="file" id="file-input" accept=".pdf,.txt" required>
-                        <small>Maximum file size: 50MB</small>
+                        <small id="max-file-size">Maximum file size: 250MB</small>
+                        <div style="margin-top:8px;">
+                            <progress id="upload-progress" value="0" max="100" style="width:100%; display:none;"></progress>
+                            <div id="upload-progress-text" style="font-size:0.95em; color:#334155; margin-top:6px; display:none;">Waiting</div>
+                        </div>
                     </div>
                     
                     <button type="submit" class="btn btn-primary">

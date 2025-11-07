@@ -32,6 +32,8 @@ const upload = multer({
 
 // Upload endpoints
 router.post('/upload/document', upload.single('file'), uploadController.uploadDocument);
+// Job status for background processing
+router.get('/upload/status/:jobId', uploadController.getUploadStatus);
 router.post('/upload/text', uploadController.uploadText);
 router.get('/upload/stats', uploadController.getUploadStats);
 
