@@ -75,6 +75,25 @@ async function uploadDocument(req, res) {
 
         // Prepare and upsert in Qdrant (could be batched too)
         jobService.update(job.id, { progress: 88, message: 'Preparing points for vector DB' });
+        // Validate embeddings
+        const badIndex = embeddings.findIndex(e => !Array.isArray(e) || e.length === 0);
+        if (badIndex !== -1) {
+          throw new Error(`Embedding generation failed for chunk index ${badIndex}`);
+        }
+
+        // Validate dimensions
+        const expectedDim = config.vectorSize;
+        const wrongDimIndex = embeddings.findIndex(e => e.length !== expectedDim);
+        if (wrongDimIndex !== -1) {
+          throw new Error(`Embedding dimension mismatch at index ${wrongDimIndex}: expected ${expectedDim}, got ${embeddings[wrongDimIndex].length}`);
+        }
+
+        // Check for NaN/Infinite values
+        const invalidVecIndex = embeddings.findIndex(e => e.some(v => typeof v !== 'number' || !isFinite(v)));
+        if (invalidVecIndex !== -1) {
+          throw new Error(`Invalid vector values (NaN/Infinity) at index ${invalidVecIndex}`);
+        }
+
         const points = chunks.map((chunk, index) => ({
           id: generateChunkId(file.originalname, index),
           vector: embeddings[index],
@@ -90,9 +109,22 @@ async function uploadDocument(req, res) {
 
         jobService.update(job.id, { progress: 92, message: 'Storing vectors into Qdrant' });
         // Insert into Qdrant in one upsert (can be large)
-        await qdrantService.upsert(points, true);
+        try {
+          // Upsert in batches to avoid very large single requests which may cause Bad Request
+          const upsertBatchSize = 500; // point count per upsert batch
+          for (let k = 0; k < points.length; k += upsertBatchSize) {
+            const batchPoints = points.slice(k, k + upsertBatchSize);
+            jobService.update(job.id, { progress: 92 + Math.floor(((k + batchPoints.length) / points.length) * 6), message: `Upserting vectors ${Math.min(k + batchPoints.length, points.length)}/${points.length}` });
+            await qdrantService.upsert(batchPoints, true);
+          }
 
-        jobService.complete(job.id, { filename: file.originalname, chunks: chunks.length, characters: document.text.length });
+          jobService.complete(job.id, { filename: file.originalname, chunks: chunks.length, characters: document.text.length });
+        } catch (upsertErr) {
+          // Attach detailed error information to job and log stack trace
+          console.error('Qdrant upsert error:', upsertErr?.message || upsertErr);
+          console.error(upsertErr?.stack || upsertErr);
+          jobService.update(job.id, { status: 'failed', message: upsertErr?.message || 'Vector DB upsert failed', error: String(upsertErr), progress: 0 });
+        }
       } catch (err) {
         console.error('Background upload processing failed:', err?.message || err);
         jobService.update(job.id, { status: 'failed', message: err?.message || String(err), error: String(err), progress: 0 });

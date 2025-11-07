@@ -41,7 +41,8 @@ class JobService {
   }
 
   fail(id, error) {
-    return this.update(id, { status: 'failed', progress: job?.progress || 0, message: error?.message || String(error), error: String(error) });
+    const job = this.jobs.get(id) || {};
+    return this.update(id, { status: 'failed', progress: job.progress || 0, message: error?.message || String(error), error: String(error) });
   }
 }
 
