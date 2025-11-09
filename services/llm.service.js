@@ -49,12 +49,14 @@ class LLMService {
    */
   buildRAGPrompt(query, contexts, chatHistory = []) {
     const systemPrompt = `You are a helpful AI assistant. Answer questions based on the provided context.
-If the context doesn't contain enough information to answer the question, say so honestly.
+If the context is empty or doesn't contain relevant information, provide a helpful general response using your knowledge.
 Be concise, accurate, and cite relevant information from the context when possible.`;
 
-    const contextText = contexts
-      .map((ctx, idx) => `[${idx + 1}] ${ctx.text}`)
-      .join('\n\n');
+    const contextText = contexts.length > 0
+      ? contexts
+          .map((ctx, idx) => `[${idx + 1}] ${ctx.text}`)
+          .join('\n\n')
+      : 'No specific context available for this query.';
 
     const userPrompt = `Context Information:
 ${contextText}
