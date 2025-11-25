@@ -65,7 +65,16 @@ class LLMService {
 
     const messages = [ { role: 'system', content: systemPrompt } ];
 
-    // Add chat history for context
+    // Insert retrieved contexts as assistant messages so the model treats them as authoritative
+    if (contextText && contextText.trim().length > 0) {
+      // split back into individual contexts (we previously joined them)
+      const contextEntries = contextText.split('\n\n');
+      contextEntries.forEach(entry => {
+        messages.push({ role: 'assistant', content: entry });
+      });
+    }
+
+    // Add chat history for context (preserve roles)
     if (chatHistory && chatHistory.length > 0) {
       chatHistory.forEach(msg => {
         messages.push({ role: 'user', content: msg.query });
@@ -73,7 +82,7 @@ class LLMService {
       });
     }
 
-    // Add current query
+    // Add current query as the user's message
     messages.push({ role: 'user', content: userPrompt });
 
     return messages;
