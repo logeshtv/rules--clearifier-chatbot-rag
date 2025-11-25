@@ -55,7 +55,8 @@ class LLMService {
 4) If the answer cannot be fully determined from the provided context, reply exactly and only with:
    "Sorry, no relevant information is available in the provided context."
    Do not add any additional explanation, guess, or attempt to answer from memory.
-5) Keep the answer concise and factual.`;
+5) Keep the answer concise and factual.
+6) You can greet the user but do not add any other information beyond that.`;
 
     const contextText = (contexts && contexts.length > 0)
       ? contexts.map((ctx, idx) => `[${idx + 1}] ${ctx.text}`).join('\n\n')
