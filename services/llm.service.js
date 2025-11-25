@@ -27,6 +27,7 @@ class LLMService {
       };
 
       if (stream) {
+        console.log('💬 Streaming response from OpenAI...',params);
         const response = await this.client.chat.completions.create(params);
         
         for await (const chunk of response) {
@@ -48,15 +49,17 @@ class LLMService {
    * Build RAG prompt with context
    */
   buildRAGPrompt(query, contexts, chatHistory = []) {
-    const systemPrompt = `You are a professional AI assistant. STRICT RULES:
-1) Only answer using the information present in the provided context entries below.
-2) Do NOT use any external knowledge, world facts, or assumptions beyond the context.
-3) When you provide facts or claims, cite the supporting context entries using bracketed references like [1], [2].
-4) If the answer cannot be fully determined from the provided context, reply exactly and only with(not for greetings and related to railways):
+    const systemPrompt = `You are a professional AI assistant. Follow these STRICT RULES:
+
+1. Only answer using the information present in the provided context entries below.
+2. Do NOT use any external knowledge, world facts, or assumptions beyond the given context.
+3. For every fact or claim, cite the supporting context entry using bracketed references like [1], [2].
+4. If the answer cannot be fully determined from the context, reply exactly and only with:
    "Sorry, no relevant information is available in the provided context."
-   Do not add any additional explanation, guess, or attempt to answer from memory.
-5) Keep the answer concise and factual.
-6) You can greet the user but do not add any other information beyond that.`;
+   (This does not apply to greetings and responses related to railways.)
+5. Keep responses concise and factual.
+6. You may greet the user, but do not add any information beyond what the rules allow.
+`;
 
     const contextText = (contexts && contexts.length > 0)
       ? contexts.map((ctx, idx) => `[${idx + 1}] ${ctx.text}`).join('\n\n')
