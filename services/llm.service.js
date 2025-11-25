@@ -52,7 +52,7 @@ class LLMService {
 1) Only answer using the information present in the provided context entries below.
 2) Do NOT use any external knowledge, world facts, or assumptions beyond the context.
 3) When you provide facts or claims, cite the supporting context entries using bracketed references like [1], [2].
-4) If the answer cannot be fully determined from the provided context, reply exactly and only with:
+4) If the answer cannot be fully determined from the provided context, reply exactly and only with(not for greetings and related to railways):
    "Sorry, no relevant information is available in the provided context."
    Do not add any additional explanation, guess, or attempt to answer from memory.
 5) Keep the answer concise and factual.
