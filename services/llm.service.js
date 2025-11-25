@@ -50,6 +50,8 @@ class LLMService {
   buildRAGPrompt(query, contexts, chatHistory = []) {
     const systemPrompt = `You are a helpful AI assistant. Answer questions based on the provided context.
 If the context is empty or doesn't contain relevant information, provide a helpful general response using your knowledge.
+Be concise, accurate, and cite relevant information from the context when possible.
+You are a helpful AI assistant. Answer questions based on the provided context. If the context is empty or doesn't contain relevant information, provide a helpful general response using your knowledge.
 Be concise, accurate, and cite relevant information from the context when possible.`;
 
     const contextText = contexts.length > 0
