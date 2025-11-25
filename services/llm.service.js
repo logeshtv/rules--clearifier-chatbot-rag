@@ -48,28 +48,22 @@ class LLMService {
    * Build RAG prompt with context
    */
   buildRAGPrompt(query, contexts, chatHistory = []) {
-    const systemPrompt = `You are a helpful AI assistant. Answer questions based on the provided context.
-If the context is empty or doesn't contain relevant information, provide a helpful general response using your knowledge.
-Be concise, accurate, and cite relevant information from the context when possible.
-You are a helpful AI assistant. Answer questions based on the provided context. If the context is empty or doesn't contain relevant information, provide a helpful general response using your knowledge.
-Be concise, accurate, and cite relevant information from the context when possible.`;
+    const systemPrompt = `You are a professional AI assistant. STRICT RULES:
+1) Only answer using the information present in the provided context entries below.
+2) Do NOT use any external knowledge, world facts, or assumptions beyond the context.
+3) When you provide facts or claims, cite the supporting context entries using bracketed references like [1], [2].
+4) If the answer cannot be fully determined from the provided context, reply exactly and only with:
+   "Sorry, no relevant information is available in the provided context."
+   Do not add any additional explanation, guess, or attempt to answer from memory.
+5) Keep the answer concise and factual.`;
 
-    const contextText = contexts.length > 0
-      ? contexts
-          .map((ctx, idx) => `[${idx + 1}] ${ctx.text}`)
-          .join('\n\n')
-      : 'No specific context available for this query.';
+    const contextText = (contexts && contexts.length > 0)
+      ? contexts.map((ctx, idx) => `[${idx + 1}] ${ctx.text}`).join('\n\n')
+      : '';
 
-    const userPrompt = `Context Information:
-${contextText}
+    const userPrompt = `Context Information:\n${contextText}\n\nQuestion: ${query}\n\nINSTRUCTIONS: Only answer if the information needed to answer the question is present in the context above. If it is not, reply exactly: "Sorry, no relevant information is available in the provided context." If you do answer, include bracketed citations linking to the context entries used (for example: "The capital is X. [2]").`;
 
-Question: ${query}
-
-Please provide a helpful answer based on the context above.`;
-
-    const messages = [
-      { role: 'system', content: systemPrompt }
-    ];
+    const messages = [ { role: 'system', content: systemPrompt } ];
 
     // Add chat history for context
     if (chatHistory && chatHistory.length > 0) {
