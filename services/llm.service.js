@@ -27,7 +27,7 @@ class LLMService {
       };
 
       if (stream) {
-        console.log('💬 Streaming response from OpenAI...',params);
+        console.log('💬 Streaming response from OpenAI...',JSON.stringify(params));
         const response = await this.client.chat.completions.create(params);
         
         for await (const chunk of response) {
