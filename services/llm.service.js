@@ -27,7 +27,6 @@ class LLMService {
       };
 
       if (stream) {
-        console.log('💬 Streaming response from OpenAI...',JSON.stringify(params));
         const response = await this.client.chat.completions.create(params);
         
         for await (const chunk of response) {
@@ -46,39 +45,60 @@ class LLMService {
   }
 
   /**
-   * Build RAG prompt with context
+   * Detect if query is a greeting or casual conversation
+   */
+  isGreeting(query) {
+    const greetingPatterns = [
+      /^(hi|hello|hey|greetings|good morning|good afternoon|good evening|namaste|namaskar)$/i,
+      /^(hi|hello|hey|greetings|good morning|good afternoon|good evening|namaste|namaskar)[\s!.,?]*$/i,
+      /^(how are you|what's up|whats up|sup)[\s!.,?]*$/i,
+      /^(thank you|thanks|thank you very much|ok|okay)[\s!.,?]*$/i
+    ];
+    return greetingPatterns.some(pattern => pattern.test(query.trim()));
+  }
+
+  /**
+   * Build RAG prompt with context - Production version for Railway Government Project
    */
   buildRAGPrompt(query, contexts, chatHistory = []) {
-    const systemPrompt = `You are a professional AI assistant. Follow these STRICT RULES:
+    // Handle greetings separately - no context needed
+    if (this.isGreeting(query)) {
+      return [
+        {
+          role: 'system',
+          content: 'You are a professional AI assistant for a Railway Government Information System. Respond to greetings politely and professionally. Keep responses brief.'
+        },
+        { role: 'user', content: query }
+      ];
+    }
 
-1. Only answer using the information present in the provided context entries below.
-2. Do NOT use any external knowledge, world facts, or assumptions beyond the given context.
-3. For every fact or claim, cite the supporting context entry using bracketed references like [1], [2].
-4. If the answer cannot be fully determined from the context, reply exactly and only with:
-   "Sorry, no relevant information is available in the provided context."
-   (This does not apply to greetings and responses related to railways.)
-5. Keep responses concise and factual.
-6. You may greet the user, but do not add any information beyond what the rules allow.
-`;
+    // Main system prompt for factual queries
+    const systemPrompt = `You are a professional AI assistant for the Railway Government Information System.
 
-    const contextText = (contexts && contexts.length > 0)
-      ? contexts.map((ctx, idx) => `[${idx + 1}] ${ctx.text}`).join('\n\n')
-      : '';
+STRICT OPERATIONAL RULES:
+1. Answer ONLY using information from the provided knowledge base entries below
+2. Do NOT use external knowledge, assumptions, or world facts beyond the given context
+3. For every fact or claim, cite the source using bracketed references: [1], [2], etc.
+4. If the answer cannot be determined from the knowledge base, respond with:
+   "I apologize, but I don't have information about that in the current knowledge base. Please contact the railway helpdesk for assistance."
+5. Keep responses concise, accurate, and professional
+6. Use formal government communication style`;
 
-    const userPrompt = `Context Information:\n${contextText}\n\nQuestion: ${query}\n\nINSTRUCTIONS: Only answer if the information needed to answer the question is present in the context above. If it is not, reply exactly: "Sorry, no relevant information is available in the provided context." If you do answer, include bracketed citations linking to the context entries used (for example: "The capital is X. [2]").`;
+    const messages = [{ role: 'system', content: systemPrompt }];
 
-    const messages = [ { role: 'system', content: systemPrompt } ];
-
-    // Insert retrieved contexts as assistant messages so the model treats them as authoritative
-    if (contextText && contextText.trim().length > 0) {
-      // split back into individual contexts (we previously joined them)
-      const contextEntries = contextText.split('\n\n');
-      contextEntries.forEach(entry => {
-        messages.push({ role: 'assistant', content: entry });
+    // Add knowledge base context as assistant messages (authoritative source)
+    if (contexts && contexts.length > 0) {
+      contexts.forEach((ctx, idx) => {
+        if (ctx.text && ctx.text.trim()) {
+          messages.push({
+            role: 'assistant',
+            content: `Knowledge Base Entry [${idx + 1}]: ${ctx.text}`
+          });
+        }
       });
     }
 
-    // Add chat history for context (preserve roles)
+    // Add conversation history for continuity
     if (chatHistory && chatHistory.length > 0) {
       chatHistory.forEach(msg => {
         messages.push({ role: 'user', content: msg.query });
@@ -86,11 +106,15 @@ class LLMService {
       });
     }
 
-    // Add current query as the user's message
-    messages.push({ role: 'user', content: userPrompt });
+    // Add current user query
+    messages.push({
+      role: 'user',
+      content: query
+    });
 
     return messages;
   }
+
 
   /**
    * Get model info

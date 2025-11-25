@@ -46,26 +46,15 @@ async function chat(req, res) {
       source: result.payload?.source || '',
       score: result.score
     }));
-
-    // If no useful context was found, short-circuit and return the exact fallback message
-    // const hasUsefulContext = contexts.some(c => c.text && c.text.trim().length > 0);
-    // if (!hasUsefulContext) {
-    //   const fallback = 'Sorry, no relevant information is available in the provided context.';
-
-    //   // Save to chat history with empty search results
-    //   chatHistoryService.addMessage(sanitizedUserId, sanitizedQuery, fallback, searchResults);
-
-    //   // Return as SSE stream message for compatibility with frontend streaming
-    //   res.setHeader('Content-Type', 'text/event-stream');
-    //   res.setHeader('Cache-Control', 'no-cache');
-    //   res.setHeader('Connection', 'keep-alive');
-    //   res.write(`data: ${JSON.stringify({ chunk: fallback, done: true, contexts: [] })}\n\n`);
-    //   res.end();
-    //   console.log('ℹ️ No context found — returned fallback message');
-    //   return;
-    // }
     
-    // Build RAG prompt
+    // Log context quality for monitoring
+    const validContexts = contexts.filter(c => c.text && c.text.trim().length > 0);
+    console.log(`📊 Context quality: ${validContexts.length}/${contexts.length} valid chunks`);
+    if (validContexts.length > 0) {
+      console.log(`   Score range: ${Math.min(...validContexts.map(c => c.score)).toFixed(3)} - ${Math.max(...validContexts.map(c => c.score)).toFixed(3)}`);
+    }
+    
+    // Build RAG prompt (handles greetings and factual queries)
     const messages = llmService.buildRAGPrompt(sanitizedQuery, contexts, recentHistory);
     
     // Set headers for streaming
